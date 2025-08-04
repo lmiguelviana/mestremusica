@@ -2,15 +2,20 @@ import { prisma } from '../../database/prisma';
 
 export interface CreateLessonRequestDto {
   professorId: string;
-  studentId: string;
-  preferredDate: string;
-  preferredTime: string;
-  duration: number; // em minutos
+  studentId?: string | null;
+  preferredDate?: string;
+  preferredTime?: string;
+  startDateTime?: Date;
+  endDateTime?: Date;
+  duration?: number; // em minutos
+  durationMinutes?: number;
   lessonType: 'ONLINE' | 'IN_PERSON';
   message?: string;
+  studentNotes?: string;
   studentName: string;
   studentEmail: string;
   studentPhone?: string;
+  totalPrice?: number;
 }
 
 export interface UpdateLessonStatusDto {
@@ -41,18 +46,38 @@ export class LessonService {
         throw new Error('Professor não encontrado ou não aprovado');
       }
 
+      // Calcular datas se não fornecidas
+      let startDateTime: Date;
+      let endDateTime: Date;
+      let durationMinutes: number;
+
+      if (data.startDateTime && data.endDateTime) {
+        startDateTime = data.startDateTime;
+        endDateTime = data.endDateTime;
+        durationMinutes = data.durationMinutes || Math.round((endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60));
+      } else if (data.preferredDate && data.preferredTime && data.duration) {
+        startDateTime = new Date(`${data.preferredDate}T${data.preferredTime}`);
+        endDateTime = new Date(startDateTime.getTime() + data.duration * 60000);
+        durationMinutes = data.duration;
+      } else {
+        throw new Error('Dados de data/hora insuficientes');
+      }
+
+      // Calcular preço se não fornecido
+      const totalPrice = data.totalPrice || parseFloat(professor.baseHourlyRate.toString()) * (durationMinutes / 60);
+
       // Criar a solicitação de aula
       const lesson = await prisma.lesson.create({
         data: {
-          studentId: data.studentId,
+          studentId: data.studentId || null,
           professorId: data.professorId,
-          startDateTime: new Date(`${data.preferredDate}T${data.preferredTime}`),
-          endDateTime: new Date(new Date(`${data.preferredDate}T${data.preferredTime}`).getTime() + data.duration * 60000),
-          durationMinutes: data.duration,
-          totalPrice: parseFloat(professor.baseHourlyRate.toString()) * (data.duration / 60),
+          startDateTime,
+          endDateTime,
+          durationMinutes,
+          totalPrice,
           status: 'PENDING',
           lessonType: data.lessonType,
-          studentNotes: data.message,
+          studentNotes: data.message || data.studentNotes,
           // Dados do aluno para casos onde não há cadastro
           studentName: data.studentName,
           studentEmail: data.studentEmail,
@@ -151,7 +176,7 @@ export class LessonService {
     }
   }
 
-  async updateLessonStatus(lessonId: string, data: UpdateLessonStatusDto, userId: string) {
+  async updateLessonStatus(lessonId: string, status: string, userId?: string, professorNotes?: string) {
     try {
       // Verificar se a aula existe e se o usuário tem permissão
       const lesson = await prisma.lesson.findUnique({
@@ -166,21 +191,23 @@ export class LessonService {
         throw new Error('Aula não encontrada');
       }
 
-      // Verificar permissões (professor ou aluno podem atualizar)
-      const canUpdate = 
-        lesson.professor.user.id === userId || 
-        lesson.student?.user.id === userId;
+      // Verificar permissões se userId fornecido
+      if (userId) {
+        const canUpdate = 
+          lesson.professor.user.id === userId || 
+          lesson.student?.user.id === userId;
 
-      if (!canUpdate) {
-        throw new Error('Sem permissão para atualizar esta aula');
+        if (!canUpdate) {
+          throw new Error('Sem permissão para atualizar esta aula');
+        }
       }
 
       // Atualizar a aula
       const updatedLesson = await prisma.lesson.update({
         where: { id: lessonId },
         data: {
-          status: data.status,
-          professorNotes: data.professorNotes,
+          status: status as any,
+          professorNotes: professorNotes,
           updatedAt: new Date()
         },
         include: {

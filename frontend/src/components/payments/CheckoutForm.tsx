@@ -8,6 +8,7 @@ import {
 } from '@stripe/react-stripe-js';
 import { CreditCardIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { paymentApi } from '../../services/paymentApi';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -70,75 +71,78 @@ const CheckoutFormContent: React.FC<CheckoutFormProps> = ({
       return;
     }
 
-    // Criar Payment Intent no backend
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/create-intent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...lessonData,
-        paymentMethod: 'card'
-      }),
-    });
+    try {
+      // Criar Payment Intent no backend
+      const { clientSecret } = await paymentApi.createPaymentIntent({
+        professorId: lessonData.professorId,
+        startDateTime: lessonData.startDateTime,
+        endDateTime: lessonData.endDateTime,
+        durationMinutes: lessonData.durationMinutes,
+        totalPrice: lessonData.totalPrice,
+        lessonType: lessonData.lessonType as 'ONLINE' | 'IN_PERSON',
+        studentName: lessonData.studentName,
+        studentEmail: lessonData.studentEmail,
+        studentPhone: lessonData.studentPhone,
+        studentNotes: lessonData.studentNotes
+      });
 
-    const { clientSecret, error } = await response.json();
-
-    if (error) {
-      toast.error(error);
-      return;
-    }
-
-    // Confirmar pagamento
-    if (!stripe) {
-      toast.error('Stripe não foi carregado corretamente');
-      return;
-    }
-
-    const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-      clientSecret,
-      {
-        payment_method: {
-          card: cardElement,
-          billing_details: {
-            name: lessonData.studentName,
-            email: lessonData.studentEmail,
-          },
-        },
+      // Confirmar pagamento
+      if (!stripe) {
+        toast.error('Stripe não foi carregado corretamente');
+        return;
       }
-    );
 
-    if (stripeError) {
-      toast.error(stripeError.message || 'Erro no pagamento');
-    } else if (paymentIntent.status === 'succeeded') {
-      toast.success('Pagamento realizado com sucesso!');
-      onSuccess(paymentIntent.id);
+      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
+        clientSecret,
+        {
+          payment_method: {
+            card: cardElement,
+            billing_details: {
+              name: lessonData.studentName,
+              email: lessonData.studentEmail,
+            },
+          },
+        }
+      );
+
+      if (stripeError) {
+        toast.error(stripeError.message || 'Erro no pagamento');
+      } else if (paymentIntent.status === 'succeeded') {
+        toast.success('Pagamento realizado com sucesso!');
+        onSuccess(paymentIntent.id);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Erro ao processar pagamento');
     }
   };
 
   const handlePixPayment = async () => {
-    // Criar Payment Intent para PIX
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/create-pix`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...lessonData,
-        paymentMethod: 'pix'
-      }),
-    });
+    try {
+      // Criar Payment Intent para PIX
+      const { pixCode, qrCode, paymentIntentId } = await paymentApi.createPixPayment({
+        professorId: lessonData.professorId,
+        startDateTime: lessonData.startDateTime,
+        endDateTime: lessonData.endDateTime,
+        durationMinutes: lessonData.durationMinutes,
+        totalPrice: lessonData.totalPrice,
+        lessonType: lessonData.lessonType as 'ONLINE' | 'IN_PERSON',
+        studentName: lessonData.studentName,
+        studentEmail: lessonData.studentEmail,
+        studentPhone: lessonData.studentPhone,
+        studentNotes: lessonData.studentNotes
+      });
 
-    const { pixCode, qrCode, paymentIntentId } = await response.json();
-
-    // Mostrar código PIX para o usuário
-    toast.success('Código PIX gerado! Copie o código ou escaneie o QR Code.');
-    
-    // Aqui você pode abrir um modal com o código PIX
-    // Por simplicidade, vou apenas simular sucesso
-    setTimeout(() => {
-      onSuccess(paymentIntentId);
-    }, 2000);
+      // Mostrar código PIX para o usuário
+      toast.success('Código PIX gerado! Copie o código ou escaneie o QR Code.');
+      
+      // Aqui você pode abrir um modal com o código PIX
+      // Por simplicidade, vou apenas simular sucesso
+      setTimeout(() => {
+        onSuccess(paymentIntentId);
+      }, 2000);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Erro ao gerar PIX');
+    }
   };
 
   const formatPrice = (price: number) => {

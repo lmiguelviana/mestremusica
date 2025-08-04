@@ -7,6 +7,7 @@ import { Professor } from '../../../hooks/useProfessors';
 import { api } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import CheckoutForm from '../../../components/payments/CheckoutForm';
+import { lessonApi } from '../../../services/lessonApi';
 import toast from 'react-hot-toast';
 import { 
   CalendarIcon,

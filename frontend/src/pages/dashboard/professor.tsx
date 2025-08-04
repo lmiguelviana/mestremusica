@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { AuthenticatedLayout } from '../../components/layout/AuthenticatedLayout';
 import { FinancialStats } from '../../components/dashboard/FinancialStats';
 import { useAuth } from '../../hooks/useAuth';
-import { api } from '../../services/api';
+import { lessonApi, Lesson } from '../../services/lessonApi';
 import toast from 'react-hot-toast';
 import {
   CalendarIcon,
@@ -19,27 +19,7 @@ import {
   ChartBarIcon
 } from '@heroicons/react/24/outline';
 
-interface Lesson {
-  id: string;
-  startDateTime: string;
-  endDateTime: string;
-  durationMinutes: number;
-  totalPrice: string;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
-  lessonType: string;
-  studentNotes?: string;
-  professorNotes?: string;
-  studentName: string;
-  studentEmail: string;
-  studentPhone?: string;
-  student?: {
-    user: {
-      name: string;
-      email: string;
-    };
-  };
-  createdAt: string;
-}
+
 
 export default function ProfessorDashboard() {
   const { user } = useAuth();
@@ -58,9 +38,8 @@ export default function ProfessorDashboard() {
 
   const loadProfessorData = async () => {
     try {
-      const response = await api.get('/auth/me');
-      if (response.data.success && response.data.data.professor) {
-        setProfessorId(response.data.data.professor.id);
+      if (user?.professor) {
+        setProfessorId(user.professor.id);
       }
     } catch (error) {
       console.error('Error loading professor data:', error);
@@ -70,12 +49,9 @@ export default function ProfessorDashboard() {
   const loadLessons = async () => {
     try {
       setLoading(true);
-      const params = selectedStatus !== 'all' ? `?status=${selectedStatus}` : '';
-      const response = await api.get(`/lessons/professor/list${params}`);
-      
-      if (response.data.success) {
-        setLessons(response.data.data);
-      }
+      const status = selectedStatus !== 'all' ? selectedStatus : undefined;
+      const lessons = await lessonApi.getProfessorLessons(status);
+      setLessons(lessons);
     } catch (error) {
       console.error('Error loading lessons:', error);
       toast.error('Erro ao carregar aulas');
@@ -86,17 +62,11 @@ export default function ProfessorDashboard() {
 
   const updateLessonStatus = async (lessonId: string, status: string, professorNotes?: string) => {
     try {
-      const response = await api.put(`/lessons/${lessonId}/status`, {
-        status,
-        professorNotes
-      });
-
-      if (response.data.success) {
-        toast.success('Status atualizado com sucesso!');
-        loadLessons();
-        setShowModal(false);
-        setSelectedLesson(null);
-      }
+      await lessonApi.updateLessonStatus(lessonId, status, professorNotes);
+      toast.success('Status atualizado com sucesso!');
+      loadLessons();
+      setShowModal(false);
+      setSelectedLesson(null);
     } catch (error: any) {
       console.error('Error updating lesson status:', error);
       toast.error(error.response?.data?.message || 'Erro ao atualizar status');
@@ -161,89 +131,128 @@ export default function ProfessorDashboard() {
 
       <AuthenticatedLayout title="Dashboard do Professor">
         <div className="space-y-8">
-          {/* Cards de Estatísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 p-6 rounded-xl border border-yellow-500/20">
-              <div className="flex items-center">
-                <ClockIcon className="w-8 h-8 text-yellow-400 mr-3" />
-                <div>
-                  <p className="text-yellow-300 text-sm font-medium">Pendentes</p>
-                  <p className="text-2xl font-bold text-white">{pendingCount}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-500/10 to-green-600/10 p-6 rounded-xl border border-green-500/20">
-              <div className="flex items-center">
-                <CheckCircleIcon className="w-8 h-8 text-green-400 mr-3" />
-                <div>
-                  <p className="text-green-300 text-sm font-medium">Confirmadas</p>
-                  <p className="text-2xl font-bold text-white">{confirmedCount}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/10 p-6 rounded-xl border border-blue-500/20">
-              <div className="flex items-center">
-                <CalendarIcon className="w-8 h-8 text-blue-400 mr-3" />
-                <div>
-                  <p className="text-blue-300 text-sm font-medium">Total de Aulas</p>
-                  <p className="text-2xl font-bold text-white">{lessons.length}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-orange-500/10 to-orange-600/10 p-6 rounded-xl border border-orange-500/20">
-              <div className="flex items-center">
-                <div className="text-orange-400 mr-3">💰</div>
-                <div>
-                  <p className="text-orange-300 text-sm font-medium">Receita Potencial</p>
-                  <p className="text-2xl font-bold text-white">
-                    R$ {lessons.reduce((sum, lesson) => sum + parseFloat(lesson.totalPrice), 0).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Filtros */}
-          <div className="bg-gray-900 p-6 rounded-xl border border-gray-800">
-            <div className="flex flex-wrap gap-4">
+          {/* Abas */}
+          <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 mb-8">
+            <div className="flex space-x-4">
               <button
-                onClick={() => setSelectedStatus('all')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  selectedStatus === 'all'
+                onClick={() => setActiveTab('lessons')}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                  activeTab === 'lessons'
                     ? 'bg-orange-500 text-white'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                 }`}
               >
-                Todas ({lessons.length})
+                📚 Aulas
               </button>
               <button
-                onClick={() => setSelectedStatus('PENDING')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  selectedStatus === 'PENDING'
-                    ? 'bg-yellow-500 text-white'
+                onClick={() => setActiveTab('financial')}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                  activeTab === 'financial'
+                    ? 'bg-orange-500 text-white'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                 }`}
               >
-                Pendentes ({pendingCount})
-              </button>
-              <button
-                onClick={() => setSelectedStatus('CONFIRMED')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  selectedStatus === 'CONFIRMED'
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                Confirmadas ({confirmedCount})
+                💰 Financeiro
               </button>
             </div>
           </div>
 
-          {/* Lista de Aulas */}
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+          {activeTab === 'lessons' && (
+            <>
+              {/* Cards de Estatísticas */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 p-6 rounded-xl border border-yellow-500/20">
+                  <div className="flex items-center">
+                    <ClockIcon className="w-8 h-8 text-yellow-400 mr-3" />
+                    <div>
+                      <p className="text-yellow-300 text-sm font-medium">Pendentes</p>
+                      <p className="text-2xl font-bold text-white">{pendingCount}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-green-500/10 to-green-600/10 p-6 rounded-xl border border-green-500/20">
+                  <div className="flex items-center">
+                    <CheckCircleIcon className="w-8 h-8 text-green-400 mr-3" />
+                    <div>
+                      <p className="text-green-300 text-sm font-medium">Confirmadas</p>
+                      <p className="text-2xl font-bold text-white">{confirmedCount}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/10 p-6 rounded-xl border border-blue-500/20">
+                  <div className="flex items-center">
+                    <CalendarIcon className="w-8 h-8 text-blue-400 mr-3" />
+                    <div>
+                      <p className="text-blue-300 text-sm font-medium">Total de Aulas</p>
+                      <p className="text-2xl font-bold text-white">{lessons.length}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-orange-500/10 to-orange-600/10 p-6 rounded-xl border border-orange-500/20">
+                  <div className="flex items-center">
+                    <div className="text-orange-400 mr-3">💰</div>
+                    <div>
+                      <p className="text-orange-300 text-sm font-medium">Receita Potencial</p>
+                      <p className="text-2xl font-bold text-white">
+                        R$ {lessons.reduce((sum, lesson) => sum + parseFloat(lesson.totalPrice), 0).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'financial' && (
+            <FinancialStats professorId={professorId || undefined} />
+          )}
+
+          {activeTab === 'lessons' && (
+            <>
+              {/* Filtros */}
+              <div className="bg-gray-900 p-6 rounded-xl border border-gray-800">
+                <div className="flex flex-wrap gap-4">
+                  <button
+                    onClick={() => setSelectedStatus('all')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      selectedStatus === 'all'
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    Todas ({lessons.length})
+                  </button>
+                  <button
+                    onClick={() => setSelectedStatus('PENDING')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      selectedStatus === 'PENDING'
+                        ? 'bg-yellow-500 text-white'
+                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    Pendentes ({pendingCount})
+                  </button>
+                  <button
+                    onClick={() => setSelectedStatus('CONFIRMED')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      selectedStatus === 'CONFIRMED'
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    Confirmadas ({confirmedCount})
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'lessons' && (
+            /* Lista de Aulas */
+            <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
             <div className="p-6 border-b border-gray-800">
               <h2 className="text-xl font-bold text-white">Solicitações de Aulas</h2>
             </div>
@@ -363,7 +372,8 @@ export default function ProfessorDashboard() {
                 })}
               </div>
             )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Modal de Detalhes */}

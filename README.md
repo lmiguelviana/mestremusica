@@ -95,9 +95,30 @@ Uma plataforma SaaS completa que funciona como um marketplace conectando alunos 
 - Node.js 18+
 - PostgreSQL (ou conta Neon Database)
 - Conta Stripe (para pagamentos)
-- Conta AWS (para armazenamento)
+- Conta AWS (para armazenamento - opcional)
 
-### **Instalação**
+### **Instalação Automática (Windows)**
+
+1. **Clone o repositório**
+```bash
+git clone https://github.com/lmiguelviana/mestremusica.git
+cd mestremusica
+```
+
+2. **Execute o setup automático**
+```bash
+# Configurar tudo automaticamente
+setup-completo.bat
+
+# OU configurar separadamente:
+setup-backend.bat    # Configura backend + banco
+setup-frontend.bat   # Configura frontend
+
+# Iniciar sistema completo
+iniciar-sistema.bat
+```
+
+### **Instalação Manual (Linux/Mac)**
 
 1. **Clone o repositório**
 ```bash
@@ -110,20 +131,32 @@ cd mestremusica
 cd backend
 npm install
 cp .env.example .env
-# Configure as variáveis de ambiente no .env
+```
+
+**Edite o arquivo `.env` com suas configurações:**
+```env
+DATABASE_URL="postgresql://username:password@localhost:5432/mestresmusic"
+JWT_SECRET="your-super-secret-jwt-key-with-at-least-32-characters"
+STRIPE_SECRET_KEY="sk_test_your_stripe_secret_key"
+STRIPE_WEBHOOK_SECRET="whsec_your_webhook_secret"
 ```
 
 3. **Configure o Frontend**
 ```bash
-cd frontend
+cd ../frontend
 npm install
 cp .env.local.example .env.local
-# Configure as variáveis de ambiente no .env.local
+```
+
+**Edite o arquivo `.env.local`:**
+```env
+NEXT_PUBLIC_API_URL="http://localhost:3001"
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_your_stripe_publishable_key"
 ```
 
 4. **Configure o Banco de Dados**
 ```bash
-cd backend
+cd ../backend
 npx prisma migrate dev
 npx prisma generate
 npx prisma db seed
@@ -135,10 +168,20 @@ npx prisma db seed
 cd backend
 npm run dev
 
-# Terminal 2 - Frontend
+# Terminal 2 - Frontend  
 cd frontend
 npm run dev
 ```
+
+### **Acesso ao Sistema**
+- **Frontend:** http://localhost:3000
+- **Backend API:** http://localhost:3001
+- **Health Check:** http://localhost:3001/health
+
+### **Credenciais de Teste**
+- **Admin:** admin@mestresmusic.com / 123456
+- **Aluno:** aluno1@teste.com / 123456  
+- **Professor:** professor1@teste.com / 123456
 
 ## 📁 **Estrutura do Projeto**
 

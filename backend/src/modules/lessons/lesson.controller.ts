@@ -149,15 +149,11 @@ export class LessonController {
         });
       }
 
-      const updateData: UpdateLessonStatusDto = {
-        status,
-        professorNotes
-      };
-
       const lesson = await this.lessonService.updateLessonStatus(
         id,
-        updateData,
-        req.user.id
+        status,
+        req.user.id,
+        professorNotes
       );
 
       res.json({

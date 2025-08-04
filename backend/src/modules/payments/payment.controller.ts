@@ -34,7 +34,7 @@ export class PaymentController {
       } = req.body;
 
       // Validar dados
-      if (!professorId || !startDateTime || !endDateTime || !totalPrice || !studentName || !studentEmail) {
+      if (!professorId || !startDateTime || !totalPrice || !studentName || !studentEmail) {
         return res.status(400).json({
           error: 'Dados obrigatórios não fornecidos'
         });
@@ -44,7 +44,7 @@ export class PaymentController {
       const lesson = await this.lessonService.createLessonRequest({
         professorId,
         startDateTime: new Date(startDateTime),
-        endDateTime: new Date(endDateTime),
+        endDateTime: endDateTime ? new Date(endDateTime) : undefined,
         durationMinutes,
         totalPrice: parseFloat(totalPrice.toString()),
         lessonType,
@@ -110,7 +110,7 @@ export class PaymentController {
       const lesson = await this.lessonService.createLessonRequest({
         professorId,
         startDateTime: new Date(startDateTime),
-        endDateTime: new Date(endDateTime),
+        endDateTime: endDateTime ? new Date(endDateTime) : undefined,
         durationMinutes,
         totalPrice: parseFloat(totalPrice.toString()),
         lessonType,

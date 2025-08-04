@@ -4,257 +4,272 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding database...');
+  console.log('🌱 Iniciando seed do banco de dados...');
 
-  // Create instruments
+  // Limpar dados existentes
+  await prisma.lesson.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.professorInstrument.deleteMany();
+  await prisma.professorAvailability.deleteMany();
+  await prisma.professor.deleteMany();
+  await prisma.student.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.instrument.deleteMany();
+  await prisma.premiumPlan.deleteMany();
+
+  console.log('🧹 Dados existentes removidos');
+
+  // Criar instrumentos
   const instruments = await Promise.all([
-    prisma.instrument.upsert({
-      where: { name: 'Violão' },
-      update: {},
-      create: { name: 'Violão' },
-    }),
-    prisma.instrument.upsert({
-      where: { name: 'Piano' },
-      update: {},
-      create: { name: 'Piano' },
-    }),
-    prisma.instrument.upsert({
-      where: { name: 'Guitarra' },
-      update: {},
-      create: { name: 'Guitarra' },
-    }),
-    prisma.instrument.upsert({
-      where: { name: 'Baixo' },
-      update: {},
-      create: { name: 'Baixo' },
-    }),
-    prisma.instrument.upsert({
-      where: { name: 'Bateria' },
-      update: {},
-      create: { name: 'Bateria' },
-    }),
-    prisma.instrument.upsert({
-      where: { name: 'Canto' },
-      update: {},
-      create: { name: 'Canto' },
-    }),
-    prisma.instrument.upsert({
-      where: { name: 'Violino' },
-      update: {},
-      create: { name: 'Violino' },
-    }),
-    prisma.instrument.upsert({
-      where: { name: 'Saxofone' },
-      update: {},
-      create: { name: 'Saxofone' },
-    }),
+    prisma.instrument.create({ data: { name: 'Violão' } }),
+    prisma.instrument.create({ data: { name: 'Guitarra' } }),
+    prisma.instrument.create({ data: { name: 'Piano' } }),
+    prisma.instrument.create({ data: { name: 'Bateria' } }),
+    prisma.instrument.create({ data: { name: 'Baixo' } }),
+    prisma.instrument.create({ data: { name: 'Violino' } }),
+    prisma.instrument.create({ data: { name: 'Saxofone' } }),
+    prisma.instrument.create({ data: { name: 'Flauta' } }),
+    prisma.instrument.create({ data: { name: 'Canto' } }),
+    prisma.instrument.create({ data: { name: 'Ukulele' } }),
   ]);
 
-  console.log('✅ Instruments created');
+  console.log('🎵 Instrumentos criados');
 
-  // Create premium plans
+  // Criar planos premium
   const premiumPlans = await Promise.all([
-    prisma.premiumPlan.upsert({
-      where: { name: 'Básico' },
-      update: {},
-      create: {
+    prisma.premiumPlan.create({
+      data: {
         name: 'Básico',
-        description: 'Perfil destacado nos resultados de busca',
+        description: 'Perfil destacado na busca',
         price: 29.90,
         duration: 30,
-        features: [
-          'Perfil destacado',
-          'Badge "Professor Verificado"',
-          'Até 5 materiais PDF',
-          'Analytics básicas'
-        ],
+        features: ['Perfil destacado', 'Suporte por email'],
+        isActive: true,
       },
     }),
-    prisma.premiumPlan.upsert({
-      where: { name: 'Premium' },
-      update: {},
-      create: {
+    prisma.premiumPlan.create({
+      data: {
         name: 'Premium',
-        description: 'Máxima visibilidade e recursos avançados',
+        description: 'Perfil premium com recursos avançados',
         price: 49.90,
         duration: 30,
-        features: [
-          'Perfil em destaque no topo',
-          'Badge "Professor Premium"',
-          'Materiais PDF ilimitados',
-          'Analytics avançadas',
-          'Suporte prioritário',
-          'Links do YouTube ilimitados'
-        ],
+        features: ['Perfil destacado', 'Badge premium', 'Suporte prioritário', 'Estatísticas avançadas'],
+        isActive: true,
       },
     }),
-    prisma.premiumPlan.upsert({
-      where: { name: 'Anual' },
-      update: {},
-      create: {
-        name: 'Anual',
-        description: 'Plano Premium com desconto anual',
-        price: 499.90,
-        duration: 365,
-        features: [
-          'Todos os recursos Premium',
-          '2 meses grátis',
-          'Consultoria personalizada',
-          'Acesso antecipado a novos recursos'
-        ],
+    prisma.premiumPlan.create({
+      data: {
+        name: 'VIP',
+        description: 'Todos os recursos premium',
+        price: 99.90,
+        duration: 30,
+        features: ['Todos os recursos premium', 'Consultoria personalizada', 'Suporte 24/7'],
+        isActive: true,
       },
     }),
   ]);
 
-  console.log('✅ Premium plans created');
+  console.log('💎 Planos premium criados');
 
-  // Create admin user
-  const adminPassword = await bcrypt.hash('admin123', 10);
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@mestresmusic.com' },
-    update: {},
-    create: {
+  // Criar usuários de teste
+  const hashedPassword = await bcrypt.hash('123456', 10);
+
+  // Criar alunos
+  const students = [];
+  for (let i = 1; i <= 5; i++) {
+    const user = await prisma.user.create({
+      data: {
+        email: `aluno${i}@teste.com`,
+        passwordHash: hashedPassword,
+        name: `Aluno ${i}`,
+        type: 'STUDENT',
+        isActive: true,
+      },
+    });
+
+    const student = await prisma.student.create({
+      data: {
+        userId: user.id,
+        phone: `(11) 9999${i.toString().padStart(4, '0')}`,
+        address: `Rua do Aluno ${i}, 123`,
+        preferences: {
+          genres: ['Rock', 'Pop', 'MPB'],
+          level: 'iniciante',
+        },
+      },
+    });
+
+    students.push({ user, student });
+  }
+
+  console.log('👨‍🎓 Alunos criados');
+
+  // Criar professores
+  const professors = [];
+  const professorNames = [
+    'João Silva',
+    'Maria Santos',
+    'Pedro Oliveira',
+    'Ana Costa',
+    'Carlos Ferreira',
+    'Lucia Rodrigues',
+    'Rafael Lima',
+    'Fernanda Alves',
+  ];
+
+  for (let i = 0; i < professorNames.length; i++) {
+    const user = await prisma.user.create({
+      data: {
+        email: `professor${i + 1}@teste.com`,
+        passwordHash: hashedPassword,
+        name: professorNames[i],
+        type: 'PROFESSOR',
+        isActive: true,
+      },
+    });
+
+    const professor = await prisma.professor.create({
+      data: {
+        userId: user.id,
+        biography: `Sou ${professorNames[i]}, professor de música com mais de 10 anos de experiência. Apaixonado por ensinar e compartilhar conhecimento musical.`,
+        experience: `${10 + i} anos de experiência em ensino musical`,
+        methodology: 'Metodologia personalizada focada no desenvolvimento individual de cada aluno',
+        baseHourlyRate: 50 + (i * 10),
+        onlineAvailable: true,
+        inPersonLocation: i % 2 === 0 ? 'São Paulo - SP' : null,
+        approvalStatus: 'APPROVED',
+        averageRating: 4.5 + (Math.random() * 0.5),
+        totalReviews: Math.floor(Math.random() * 50) + 10,
+        youtubeUrl: i % 3 === 0 ? 'https://youtube.com/@professor' + (i + 1) : null,
+        instagramUrl: i % 2 === 0 ? 'https://instagram.com/professor' + (i + 1) : null,
+        phone: `(11) 8888${(i + 1).toString().padStart(4, '0')}`,
+        whatsapp: `11888${(i + 1).toString().padStart(6, '0')}`,
+        isPremium: i < 3, // Primeiros 3 são premium
+        premiumPlanId: i < 3 ? premiumPlans[i % 3].id : null,
+        premiumExpiresAt: i < 3 ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null,
+      },
+    });
+
+    // Associar instrumentos aos professores
+    const professorInstruments = [];
+    const numInstruments = Math.floor(Math.random() * 3) + 1; // 1-3 instrumentos
+    const selectedInstruments = instruments
+      .sort(() => 0.5 - Math.random())
+      .slice(0, numInstruments);
+
+    for (const instrument of selectedInstruments) {
+      await prisma.professorInstrument.create({
+        data: {
+          professorId: professor.id,
+          instrumentId: instrument.id,
+          proficiencyLevel: ['iniciante', 'intermediario', 'avancado'][Math.floor(Math.random() * 3)],
+        },
+      });
+    }
+
+    // Criar disponibilidade para o professor
+    const daysOfWeek = [1, 2, 3, 4, 5]; // Segunda a sexta
+    for (const day of daysOfWeek) {
+      await prisma.professorAvailability.create({
+        data: {
+          professorId: professor.id,
+          dayOfWeek: day,
+          startTime: '09:00',
+          endTime: '18:00',
+          isRecurring: true,
+        },
+      });
+    }
+
+    professors.push({ user, professor });
+  }
+
+  console.log('👨‍🏫 Professores criados');
+
+  // Criar algumas aulas de exemplo
+  const lessons = [];
+  for (let i = 0; i < 10; i++) {
+    const student = students[Math.floor(Math.random() * students.length)];
+    const professor = professors[Math.floor(Math.random() * professors.length)];
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() + Math.floor(Math.random() * 30)); // Próximos 30 dias
+    startDate.setHours(9 + Math.floor(Math.random() * 9), 0, 0, 0); // 9h às 18h
+
+    const endDate = new Date(startDate);
+    endDate.setHours(startDate.getHours() + 1); // 1 hora de aula
+
+    const lesson = await prisma.lesson.create({
+      data: {
+        studentId: student.student.id,
+        professorId: professor.professor.id,
+        startDateTime: startDate,
+        endDateTime: endDate,
+        durationMinutes: 60,
+        totalPrice: professor.professor.baseHourlyRate,
+        status: ['PENDING', 'CONFIRMED', 'COMPLETED'][Math.floor(Math.random() * 3)] as any,
+        lessonType: Math.random() > 0.5 ? 'ONLINE' : 'IN_PERSON',
+        studentNotes: i % 3 === 0 ? 'Gostaria de focar em técnicas básicas' : null,
+        studentName: student.user.name,
+        studentEmail: student.user.email,
+        studentPhone: student.student.phone,
+      },
+    });
+
+    lessons.push(lesson);
+  }
+
+  console.log('📚 Aulas de exemplo criadas');
+
+  // Criar alguns pagamentos
+  for (let i = 0; i < 5; i++) {
+    const lesson = lessons[i];
+
+    await prisma.payment.create({
+      data: {
+        lessonId: lesson.id,
+        amount: lesson.totalPrice,
+        currency: 'BRL',
+        status: 'COMPLETED',
+        paymentMethod: Math.random() > 0.5 ? 'card' : 'pix',
+      },
+    });
+  }
+
+  console.log('💳 Pagamentos de exemplo criados');
+
+  // Criar usuário admin
+  const adminUser = await prisma.user.create({
+    data: {
       email: 'admin@mestresmusic.com',
-      passwordHash: adminPassword,
-      name: 'Administrador MestresMusic',
+      passwordHash: hashedPassword,
+      name: 'Administrador',
       type: 'ADMIN',
+      isActive: true,
     },
   });
 
-  console.log('✅ Admin user created');
+  console.log('👑 Usuário admin criado');
 
-  // Create sample student
-  const studentPassword = await bcrypt.hash('student123', 10);
-  const studentUser = await prisma.user.create({
-    data: {
-      email: 'aluno@exemplo.com',
-      passwordHash: studentPassword,
-      name: 'João Silva',
-      type: 'STUDENT',
-      student: {
-        create: {
-          phone: '(11) 99999-9999',
-          preferences: {
-            instruments: ['Violão', 'Piano'],
-            styles: ['Rock', 'Pop', 'Clássico']
-          }
-        }
-      }
-    },
-    include: {
-      student: true
-    }
-  });
+  console.log('✅ Seed concluído com sucesso!');
+  console.log('\n📋 Dados criados:');
+  console.log(`- ${instruments.length} instrumentos`);
+  console.log(`- ${premiumPlans.length} planos premium`);
+  console.log(`- ${students.length} alunos`);
+  console.log(`- ${professors.length} professores`);
+  console.log(`- ${lessons.length} aulas`);
+  console.log(`- 5 pagamentos`);
+  console.log(`- 1 usuário admin`);
 
-  console.log('✅ Sample student created');
-
-  // Create sample professor
-  const professorPassword = await bcrypt.hash('professor123', 10);
-  const professorUser = await prisma.user.create({
-    data: {
-      email: 'professor@exemplo.com',
-      passwordHash: professorPassword,
-      name: 'Maria Santos',
-      type: 'PROFESSOR',
-      professor: {
-        create: {
-          biography: 'Professora de música com mais de 10 anos de experiência, especializada em violão e piano.',
-          experience: 'Formada em Música pela UNESP, com especialização em Educação Musical.',
-          methodology: 'Metodologia personalizada focada no desenvolvimento individual de cada aluno.',
-          baseHourlyRate: 80.00,
-          onlineAvailable: true,
-          inPersonLocation: 'São Paulo, SP',
-          approvalStatus: 'APPROVED',
-          phone: '(11) 98888-8888',
-          whatsapp: '5511988888888',
-          youtubeUrl: 'https://youtube.com/@mariasantosmusic',
-          instagramUrl: 'https://instagram.com/mariasantosmusic',
-          instruments: {
-            create: [
-              {
-                instrument: { connect: { name: 'Violão' } },
-                proficiencyLevel: 'avancado'
-              },
-              {
-                instrument: { connect: { name: 'Piano' } },
-                proficiencyLevel: 'intermediario'
-              }
-            ]
-          },
-          certifications: {
-            create: [
-              {
-                title: 'Licenciatura em Música',
-                institution: 'UNESP',
-                year: 2010,
-                description: 'Formação completa em Educação Musical'
-              },
-              {
-                title: 'Especialização em Violão Clássico',
-                institution: 'Conservatório de Tatuí',
-                year: 2015
-              }
-            ]
-          },
-          achievements: {
-            create: [
-              {
-                title: '1º Lugar - Festival de Música de Campos do Jordão',
-                description: 'Categoria violão solo',
-                year: 2018,
-                type: 'AWARD'
-              }
-            ]
-          },
-          youtubeMusicLinks: {
-            create: [
-              {
-                title: 'Aula de Violão para Iniciantes',
-                youtubeUrl: 'https://youtube.com/watch?v=example1',
-                description: 'Tutorial básico de acordes',
-                category: 'TUTORIAL'
-              },
-              {
-                title: 'Apresentação - Villa Lobos',
-                youtubeUrl: 'https://youtube.com/watch?v=example2',
-                description: 'Performance de música clássica brasileira',
-                category: 'PERFORMANCE'
-              }
-            ]
-          }
-        }
-      }
-    },
-    include: {
-      professor: {
-        include: {
-          instruments: {
-            include: {
-              instrument: true
-            }
-          },
-          certifications: true,
-          achievements: true,
-          youtubeMusicLinks: true
-        }
-      }
-    }
-  });
-
-  console.log('✅ Sample professor created');
-
-  console.log('🎉 Database seeded successfully!');
-  console.log('\n📋 Created:');
-  console.log(`- ${instruments.length} instruments`);
-  console.log(`- ${premiumPlans.length} premium plans`);
-  console.log('- 1 admin user (admin@mestresmusic.com / admin123)');
-  console.log('- 1 sample student (aluno@exemplo.com / student123)');
-  console.log('- 1 sample professor (professor@exemplo.com / professor123)');
+  console.log('\n🔑 Credenciais de teste:');
+  console.log('Admin: admin@mestresmusic.com / 123456');
+  console.log('Aluno: aluno1@teste.com / 123456');
+  console.log('Professor: professor1@teste.com / 123456');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Error seeding database:', e);
+    console.error('❌ Erro durante o seed:', e);
     process.exit(1);
   })
   .finally(async () => {
