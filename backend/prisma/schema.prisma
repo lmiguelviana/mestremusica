@@ -1,0 +1,337 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserType {
+  STUDENT
+  PROFESSOR
+  ADMIN
+}
+
+enum LessonStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MaterialCategory {
+  EXERCISE
+  THEORY
+  SHEET_MUSIC
+  METHOD
+  OTHER
+}
+
+enum YoutubeCategory {
+  PERFORMANCE
+  TUTORIAL
+  COMPOSITION
+  COVER
+  OTHER
+}
+
+enum AchievementType {
+  AWARD
+  PERFORMANCE
+  PUBLICATION
+  OTHER
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String   @map("password_hash")
+  name            String
+  type            UserType
+  profileImageUrl String?  @map("profile_image_url")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  student   Student?
+  professor Professor?
+
+  @@map("users")
+}
+
+model Student {
+  id          String    @id @default(cuid())
+  userId      String    @unique @map("user_id")
+  dateOfBirth DateTime? @map("date_of_birth")
+  phone       String?
+  address     String?
+  preferences Json?
+
+  // Relations
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+  reviews Review[]
+
+  @@map("students")
+}
+
+model Professor {
+  id                 String         @id @default(cuid())
+  userId             String         @unique @map("user_id")
+  biography          String?
+  experience         String?
+  methodology        String?
+  baseHourlyRate     Decimal        @map("base_hourly_rate") @db.Decimal(10, 2)
+  onlineAvailable    Boolean        @default(false) @map("online_available")
+  inPersonLocation   String?        @map("in_person_location")
+  approvalStatus     ApprovalStatus @default(PENDING) @map("approval_status")
+  averageRating      Decimal?       @map("average_rating") @db.Decimal(2, 1)
+  totalReviews       Int            @default(0) @map("total_reviews")
+  youtubeUrl         String?        @map("youtube_url")
+  instagramUrl       String?        @map("instagram_url")
+  soundcloudUrl      String?        @map("soundcloud_url")
+  phone              String?        @map("phone")
+  whatsapp           String?        @map("whatsapp")
+  
+  // Premium subscription
+  premiumPlanId      String?        @map("premium_plan_id")
+  premiumExpiresAt   DateTime?      @map("premium_expires_at")
+  isPremium          Boolean        @default(false) @map("is_premium")
+
+  // Relations
+  user                User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instruments         ProfessorInstrument[]
+  availability        ProfessorAvailability[]
+  lessons             Lesson[]
+  reviews             Review[]
+  pdfMaterials        PdfMaterial[]
+  youtubeMusicLinks   YoutubeMusicLink[]
+  certifications      Certification[]
+  achievements        Achievement[]
+  premiumPlan         PremiumPlan?              @relation(fields: [premiumPlanId], references: [id])
+  subscriptions       PremiumSubscription[]
+
+  @@map("professors")
+}
+
+model Instrument {
+  id   String @id @default(cuid())
+  name String @unique
+
+  // Relations
+  professors ProfessorInstrument[]
+
+  @@map("instruments")
+}
+
+model ProfessorInstrument {
+  professorId       String @map("professor_id")
+  instrumentId      String @map("instrument_id")
+  proficiencyLevel  String @map("proficiency_level") // "iniciante", "intermediario", "avancado"
+
+  // Relations
+  professor  Professor  @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@id([professorId, instrumentId])
+  @@map("professor_instruments")
+}
+
+model ProfessorAvailability {
+  id          String  @id @default(cuid())
+  professorId String  @map("professor_id")
+  dayOfWeek   Int     @map("day_of_week") // 0=Sunday, 6=Saturday
+  startTime   String  @map("start_time") // HH:MM format
+  endTime     String  @map("end_time")   // HH:MM format
+  isRecurring Boolean @default(true) @map("is_recurring")
+  exceptionDate DateTime? @map("exception_date") // For non-recurring slots
+
+  // Relations
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  @@map("professor_availability")
+}
+
+model Lesson {
+  id            String       @id @default(cuid())
+  studentId     String?      @map("student_id") // Nullable para permitir usuários não cadastrados
+  professorId   String       @map("professor_id")
+  startDateTime DateTime     @map("start_date_time")
+  endDateTime   DateTime     @map("end_date_time")
+  durationMinutes Int        @map("duration_minutes")
+  totalPrice    Decimal      @map("total_price") @db.Decimal(10, 2)
+  status        LessonStatus @default(PENDING)
+  lessonType    String       @default("ONLINE") @map("lesson_type") // ONLINE or IN_PERSON
+  notes         String?      // Notas gerais
+  studentNotes  String?      @map("student_notes") // Mensagem do aluno
+  professorNotes String?     @map("professor_notes") // Resposta do professor
+  
+  // Dados do aluno para casos sem cadastro
+  studentName   String       @map("student_name")
+  studentEmail  String       @map("student_email")
+  studentPhone  String?      @map("student_phone")
+  
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  student   Student?  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  payment   Payment?
+  review    Review?
+
+  @@map("lessons")
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  lessonId              String        @unique @map("lesson_id")
+  amount                Decimal       @db.Decimal(10, 2)
+  currency              String        @default("BRL")
+  status                PaymentStatus @default(PENDING)
+  stripePaymentIntentId String?       @map("stripe_payment_intent_id")
+  paymentMethod         String?       @map("payment_method")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  lessonId  String   @unique @map("lesson_id")
+  studentId String   @map("student_id")
+  professorId String @map("professor_id")
+  rating    Int      // 1-5 stars
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  lesson    Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+// Portfolio Models
+model PdfMaterial {
+  id          String           @id @default(cuid())
+  professorId String           @map("professor_id")
+  title       String
+  description String?
+  fileUrl     String           @map("file_url")
+  fileName    String           @map("file_name")
+  fileSize    Int              @map("file_size")
+  isPublic    Boolean          @default(false) @map("is_public")
+  category    MaterialCategory @default(OTHER)
+  uploadedAt  DateTime         @default(now()) @map("uploaded_at")
+
+  // Relations
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  @@map("pdf_materials")
+}
+
+model YoutubeMusicLink {
+  id          String          @id @default(cuid())
+  professorId String          @map("professor_id")
+  title       String
+  youtubeUrl  String          @map("youtube_url")
+  description String?
+  category    YoutubeCategory @default(OTHER)
+  addedAt     DateTime        @default(now()) @map("added_at")
+
+  // Relations
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  @@map("youtube_music_links")
+}
+
+model Certification {
+  id            String   @id @default(cuid())
+  professorId   String   @map("professor_id")
+  title         String
+  institution   String
+  year          Int
+  description   String?
+  certificateUrl String? @map("certificate_url")
+
+  // Relations
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  @@map("certifications")
+}
+
+model Achievement {
+  id          String          @id @default(cuid())
+  professorId String          @map("professor_id")
+  title       String
+  description String
+  year        Int
+  type        AchievementType @default(OTHER)
+
+  // Relations
+  professor Professor @relation(fields: [professorId], references: [id], onDelete: Cascade)
+
+  @@map("achievements")
+}
+
+// Premium Plans Models
+model PremiumPlan {
+  id          String  @id @default(cuid())
+  name        String  @unique // "Básico", "Premium", "VIP"
+  description String
+  price       Decimal @db.Decimal(10, 2)
+  duration    Int     // Duration in days (30, 90, 365)
+  features    Json    // JSON array of features
+  isActive    Boolean @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  professors    Professor[]
+  subscriptions PremiumSubscription[]
+
+  @@map("premium_plans")
+}
+
+model PremiumSubscription {
+  id            String        @id @default(cuid())
+  professorId   String        @map("professor_id")
+  planId        String        @map("plan_id")
+  startDate     DateTime      @map("start_date")
+  endDate       DateTime      @map("end_date")
+  status        PaymentStatus @default(PENDING)
+  amount        Decimal       @db.Decimal(10, 2)
+  stripeSubscriptionId String? @map("stripe_subscription_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  professor Professor   @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  plan      PremiumPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@map("premium_subscriptions")
+}

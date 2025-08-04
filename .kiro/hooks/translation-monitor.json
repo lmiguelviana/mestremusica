@@ -1,0 +1,38 @@
+{
+  "name": "Translation Monitor",
+  "description": "Monitor changes to localization files and automatically generate translations for all configured target languages",
+  "trigger": {
+    "type": "fileChange",
+    "patterns": [
+      "**/*.json",
+      "**/*.yaml",
+      "**/*.yml",
+      "**/locales/**/*",
+      "**/i18n/**/*",
+      "**/translations/**/*",
+      "**/lang/**/*"
+    ],
+    "excludePatterns": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.git/**"
+    ]
+  },
+  "condition": {
+    "type": "contentMatch",
+    "patterns": [
+      "\"[a-zA-Z_][a-zA-Z0-9_]*\"\\s*:\\s*\"[^\"]*\"",
+      "[a-zA-Z_][a-zA-Z0-9_]*:\\s*['\"][^'\"]*['\"]"
+    ]
+  },
+  "action": {
+    "type": "agentExecution",
+    "prompt": "A localization file has been modified. Please:\n\n1. Analyze the changed file to identify new or modified text content that needs translation\n2. Determine the source language of the content\n3. Identify all target languages that need translations (look for existing language files or configuration)\n4. Generate accurate translations for each target language, maintaining:\n   - Proper context and meaning\n   - Locale-specific conventions\n   - Consistent terminology across the application\n   - Appropriate formality level\n5. Update or create the corresponding translation files for each target language\n6. Preserve the original file structure and formatting\n\nFile that was changed: {{filePath}}\nChanges made: {{changes}}\n\nPlease ensure translations are contextually appropriate for a music education platform connecting students with teachers."
+  },
+  "settings": {
+    "debounceMs": 2000,
+    "batchChanges": true,
+    "autoApprove": false
+  }
+}
