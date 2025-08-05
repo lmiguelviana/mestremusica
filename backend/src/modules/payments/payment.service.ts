@@ -350,7 +350,7 @@ export class PaymentService {
   // Processar repasse para professor
   async processProfessorPayout(professorId: string, period: string = '30d') {
     const stats = await this.getPaymentStats(professorId, period);
-    const totalRevenue = stats.summary.totalRevenue;
+    const totalRevenue = Number(stats.summary.totalRevenue) || 0;
     const commission = totalRevenue * 0.1; // 10% de comissão
     const professorAmount = totalRevenue - commission;
 

@@ -5,7 +5,7 @@ import {
   BanknotesIcon,
   ChartBarIcon,
   CreditCardIcon,
-  TrendingUpIcon
+  ArrowTrendingUpIcon
 } from '@heroicons/react/24/outline';
 
 interface FinancialStatsProps {
@@ -101,7 +101,7 @@ export const FinancialStats: React.FC<FinancialStatsProps> = ({ professorId }) =
 
         <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/10 p-4 rounded-lg border border-blue-500/20">
           <div className="flex items-center">
-            <TrendingUpIcon className="w-6 h-6 text-blue-400 mr-2" />
+            <ArrowTrendingUpIcon className="w-6 h-6 text-blue-400 mr-2" />
             <div>
               <p className="text-blue-300 text-xs font-medium">Ticket Médio</p>
               <p className="text-white font-bold">{formatCurrency(stats.summary.averagePayment)}</p>

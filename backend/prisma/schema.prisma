@@ -207,7 +207,7 @@ model Payment {
   amount                Decimal       @db.Decimal(10, 2)
   currency              String        @default("BRL")
   status                PaymentStatus @default(PENDING)
-  stripePaymentIntentId String?       @map("stripe_payment_intent_id")
+  stripePaymentIntentId String?       @unique @map("stripe_payment_intent_id")
   paymentMethod         String?       @map("payment_method")
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { prisma } from './database/prisma';
+import postgresClient from './database/postgres';
 import env from './config/env';
 import { authRoutes } from './modules/auth/auth.routes';
 import { professorRoutes } from './modules/professors/professor.routes';
@@ -27,14 +28,15 @@ app.use('/api/payments', paymentRoutes);
 // Health check route
 app.get('/health', async (req, res) => {
   try {
-    // Test database connection
-    await prisma.$queryRaw`SELECT 1`;
+    // Test database connection using direct PostgreSQL client
+    const result = await postgresClient.query('SELECT 1 as test');
     
     res.json({
       status: 'ok',
       message: 'MestresMusic API is running!',
       timestamp: new Date().toISOString(),
       database: 'connected',
+      test: result.rows[0]
     });
   } catch (error) {
     res.status(500).json({
@@ -48,10 +50,10 @@ app.get('/health', async (req, res) => {
 // Test route to get instruments
 app.get('/api/instruments', async (req, res) => {
   try {
-    const instruments = await prisma.instrument.findMany();
+    const result = await postgresClient.query('SELECT * FROM instruments');
     res.json({
       success: true,
-      data: instruments,
+      data: result.rows,
     });
   } catch (error) {
     res.status(500).json({
@@ -65,12 +67,10 @@ app.get('/api/instruments', async (req, res) => {
 // Test route to get premium plans
 app.get('/api/premium-plans', async (req, res) => {
   try {
-    const plans = await prisma.premiumPlan.findMany({
-      where: { isActive: true },
-    });
+    const result = await postgresClient.query('SELECT * FROM premium_plans WHERE is_active = true');
     res.json({
       success: true,
-      data: plans,
+      data: result.rows,
     });
   } catch (error) {
     res.status(500).json({
@@ -84,33 +84,16 @@ app.get('/api/premium-plans', async (req, res) => {
 // Test route to get professors
 app.get('/api/professors', async (req, res) => {
   try {
-    const professors = await prisma.professor.findMany({
-      where: { approvalStatus: 'APPROVED' },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            profileImageUrl: true,
-          },
-        },
-        instruments: {
-          include: {
-            instrument: true,
-          },
-        },
-        _count: {
-          select: {
-            reviews: true,
-          },
-        },
-      },
-      take: 10,
-    });
-    
+    const result = await postgresClient.query(`
+      SELECT p.*, u.name, u.profile_image_url 
+      FROM professors p 
+      JOIN users u ON p.user_id = u.id 
+      WHERE p.approval_status = 'APPROVED'
+      LIMIT 10
+    `);
     res.json({
       success: true,
-      data: professors,
+      data: result.rows,
     });
   } catch (error) {
     res.status(500).json({

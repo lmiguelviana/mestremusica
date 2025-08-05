@@ -1,74 +1,49 @@
-const { Client } = require('pg');
+const { PrismaClient } = require('@prisma/client');
 
-async function testNeonConnection() {
-  const connectionString = 'postgresql://neondb_owner:npg_BlvRm5Zto0aw@ep-orange-frost-act3zl7j-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
-  
-  console.log('🔍 Testando conexão direta com Neon PostgreSQL...\n');
-  console.log('🔗 Endpoint:', 'ep-orange-frost-act3zl7j-pooler.sa-east-1.aws.neon.tech');
-  
-  const client = new Client({
-    connectionString,
-    connectionTimeoutMillis: 10000, // 10 segundos
-  });
+// Testar com connection string completa
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: "postgresql://neondb_owner:npg_BlvRm5Zto0aw@ep-orange-frost-act3zl7j-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    }
+  }
+});
 
+async function testConnection() {
   try {
-    console.log('⏳ Conectando...');
-    await client.connect();
-    console.log('✅ Conexão estabelecida com sucesso!');
+    console.log('🔍 Testando conexão com Neon Database...');
+    console.log('🔗 URL:', 'ep-orange-frost-act3zl7j-pooler.sa-east-1.aws.neon.tech');
     
-    console.log('🧪 Executando query de teste...');
-    const result = await client.query('SELECT NOW() as current_time, version() as pg_version');
-    console.log('✅ Query executada com sucesso!');
-    console.log('📊 Resultado:', {
-      time: result.rows[0].current_time,
-      version: result.rows[0].pg_version.split(' ')[0] + ' ' + result.rows[0].pg_version.split(' ')[1]
-    });
+    // Teste básico de conexão
+    const result = await prisma.$queryRaw`SELECT 1 as test`;
+    console.log('✅ Conexão bem-sucedida!');
+    console.log('Resultado:', result);
     
-    // Testar se as tabelas existem
-    console.log('\n🔍 Verificando tabelas existentes...');
-    const tables = await client.query(`
+    // Verificar tabelas existentes
+    const tables = await prisma.$queryRaw`
       SELECT table_name 
       FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-      ORDER BY table_name
-    `);
+      WHERE table_schema = 'public'
+    `;
     
-    if (tables.rows.length > 0) {
-      console.log(`📊 Encontradas ${tables.rows.length} tabelas:`);
-      tables.rows.forEach(row => console.log(`   - ${row.table_name}`));
-    } else {
-      console.log('⚠️  Nenhuma tabela encontrada. Schema precisa ser aplicado.');
-    }
+    console.log('📋 Tabelas encontradas:');
+    tables.forEach(table => {
+      console.log(`  - ${table.table_name}`);
+    });
     
   } catch (error) {
-    console.log('❌ Erro de conexão:');
-    console.log(`   Código: ${error.code}`);
-    console.log(`   Mensagem: ${error.message}`);
+    console.error('❌ Erro na conexão:', error.message);
     
-    if (error.code === 'ENOTFOUND') {
-      console.log('\n💡 Possíveis causas:');
-      console.log('   - Banco Neon pausado (inativo por mais de 5 minutos)');
-      console.log('   - Problemas de DNS/conectividade');
-      console.log('   - Endpoint alterado no console Neon');
-    } else if (error.code === 'ECONNREFUSED') {
-      console.log('\n💡 Possíveis causas:');
-      console.log('   - Banco Neon pausado ou suspenso');
-      console.log('   - Firewall bloqueando conexão');
-    } else if (error.code === 'ETIMEDOUT') {
-      console.log('\n💡 Possíveis causas:');
-      console.log('   - Timeout de conexão (banco muito lento para responder)');
-      console.log('   - Banco Neon pausado');
-    }
-    
-    console.log('\n🔧 Soluções recomendadas:');
-    console.log('   1. Acesse https://console.neon.tech/ e verifique o status');
-    console.log('   2. Se pausado, clique em "Resume" no projeto');
-    console.log('   3. Verifique se a connection string mudou');
-    console.log('   4. Use banco local: node setup-local-db.js');
+    // Sugestões de solução
+    console.log('\n🔧 Possíveis soluções:');
+    console.log('1. Verifique se o banco Neon está ativo em https://console.neon.tech/');
+    console.log('2. Se pausado, clique em "Resume"');
+    console.log('3. Verifique se a connection string está correta');
+    console.log('4. Teste sem channel_binding=require');
     
   } finally {
-    await client.end();
+    await prisma.$disconnect();
   }
 }
 
-testNeonConnection();
+testConnection();
